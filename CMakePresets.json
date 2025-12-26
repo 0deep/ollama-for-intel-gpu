@@ -1,0 +1,63 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "Default",
+      "binaryDir": "${sourceDir}/build",
+      "installDir": "${sourceDir}/dist",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded"
+      }
+    },
+    {
+      "name": "CPU",
+      "inherits": [
+        "Default"
+      ]
+    },
+    {
+      "name": "SYCL",
+      "inherits": [
+        "Default"
+      ],
+      "cacheVariables": {
+        "GGML_SYCL": "ON",
+        "GGML_SYCL_DNN": "ON",
+        "GGML_SYCL_F16": "ON"
+      }
+    },
+    {
+      "name": "SYCL_INTEL",
+      "inherits": [
+        "SYCL"
+      ],
+      "cacheVariables": {
+        "GGML_SYCL_TARGET": "INTEL",
+        "CMAKE_C_COMPILER": "icx",
+        "CMAKE_CXX_COMPILER": "icpx"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "Default",
+      "configurePreset": "Default",
+      "configuration": "Release"
+    },
+    {
+      "name": "CPU",
+      "configurePreset": "Default",
+      "targets": [
+        "ggml-cpu"
+      ]
+    },
+    {
+      "name": "SYCL_INTEL",
+      "targets": [
+        "ggml-sycl"
+      ],
+      "configurePreset": "SYCL_INTEL"
+    }
+  ]
+}
