@@ -1,0 +1,161 @@
+name: Sync Submodule (Ollama)
+
+on:
+  # Run daily at 3 AM (UTC) - Noon in Korea Time
+  schedule:
+    - cron: '0 3 * * *'
+  
+  # Manual execution enabled
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Ollama branch to sync (default: main)'
+        required: false
+        default: 'main'
+        type: string
+      force_update:
+        description: 'Force update even if no changes'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  SUBMODULE_PATH: ollama
+  SUBMODULE_NAME: ollama
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+      new_commit: ${{ steps.check.outputs.new_commit }}
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Get current submodule commit
+        id: current
+        run: |
+          cd ${{ env.SUBMODULE_PATH }}
+          CURRENT_COMMIT=$(git rev-parse HEAD)
+          echo "commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
+          echo "Current submodule commit: $CURRENT_COMMIT"
+      
+      - name: Fetch latest submodule changes
+        id: fetch
+        run: |
+          cd ${{ env.SUBMODULE_PATH }}
+          
+          # Use specified branch for manual execution, otherwise main
+          TARGET_BRANCH="${{ inputs.branch || 'main' }}"
+          echo "Target branch: $TARGET_BRANCH"
+          
+          git fetch origin $TARGET_BRANCH
+          LATEST_COMMIT=$(git rev-parse origin/$TARGET_BRANCH)
+          echo "latest=$LATEST_COMMIT" >> $GITHUB_OUTPUT
+          echo "Latest upstream commit: $LATEST_COMMIT"
+          
+          # Get commit message
+          COMMIT_MSG=$(git log --format=%B -n 1 $LATEST_COMMIT | head -n 1)
+          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "Latest commit message: $COMMIT_MSG"
+      
+      - name: Check for changes
+        id: check
+        run: |
+          CURRENT="${{ steps.current.outputs.commit }}"
+          LATEST="${{ steps.fetch.outputs.latest }}"
+          FORCE="${{ inputs.force_update }}"
+          
+          if [ "$CURRENT" != "$LATEST" ] || [ "$FORCE" == "true" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "new_commit=$LATEST" >> $GITHUB_OUTPUT
+            echo "✅ Changes detected or force update enabled"
+            echo "  Current: $CURRENT"
+            echo "  Latest:  $LATEST"
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No changes detected"
+          fi
+      
+      - name: Update submodule
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          cd ${{ env.SUBMODULE_PATH }}
+          TARGET_BRANCH="${{ inputs.branch || 'main' }}"
+          git checkout origin/$TARGET_BRANCH
+          
+          cd ..
+          git add ${{ env.SUBMODULE_PATH }}
+      
+      - name: Get submodule changelog
+        if: steps.check.outputs.has_changes == 'true'
+        id: changelog
+        run: |
+          cd ${{ env.SUBMODULE_PATH }}
+          
+          CURRENT="${{ steps.current.outputs.commit }}"
+          LATEST="${{ steps.fetch.outputs.latest }}"
+          
+          # Generate changelog
+          echo "## 📝 Submodule Update: Ollama" > /tmp/changelog.md
+          echo "" >> /tmp/changelog.md
+          echo "**Updated from:** \`$CURRENT\`" >> /tmp/changelog.md
+          echo "**Updated to:** \`$LATEST\`" >> /tmp/changelog.md
+          echo "" >> /tmp/changelog.md
+          echo "### Recent Changes:" >> /tmp/changelog.md
+          echo "" >> /tmp/changelog.md
+          
+          # Last 20 commit logs
+          git log --pretty=format:"- %s (%h) - %an" $CURRENT..$LATEST | head -20 >> /tmp/changelog.md
+          
+          cat /tmp/changelog.md
+      
+      - name: Create Pull Request
+        if: steps.check.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            chore: update ollama submodule to ${{ steps.check.outputs.new_commit }}
+            
+            Updates ollama submodule from ${{ steps.current.outputs.commit }} to ${{ steps.check.outputs.new_commit }}
+          branch: auto/update-ollama-submodule
+          delete-branch: true
+          title: '🔄 Auto: Update Ollama submodule'
+          body-path: /tmp/changelog.md
+          labels: |
+            automated
+            submodule-update
+            dependencies
+          assignees: ${{ github.repository_owner }}
+      
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "## 🔄 Submodule Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Submodule:** ${{ env.SUBMODULE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Current Commit:** \`${{ steps.current.outputs.commit }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Latest Commit:** \`${{ steps.fetch.outputs.latest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check.outputs.has_changes }}" == "true" ]; then
+            echo "**Status:** ✅ Changes detected - PR created" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** ℹ️ No changes - Already up to date" >> $GITHUB_STEP_SUMMARY
+          fi
