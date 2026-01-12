@@ -63,6 +63,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          
+          # Remove unnecessary pre-installed software
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          
+          # Clean up Docker
+          docker system prune -af --volumes || true
+          
+          echo "Disk space after cleanup:"
+          df -h
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
@@ -73,16 +91,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}
-            type=semver,pattern={{major}},value=${{ steps.version.outputs.version }}
-            type=raw,value=latest
+      - name: Set Docker tags
+        id: docker_tags
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          # Remove 'v' prefix if present
+          VERSION_NUM=${VERSION#v}
+          MAJOR=$(echo $VERSION_NUM | cut -d. -f1)
+          MINOR=$(echo $VERSION_NUM | cut -d. -f1-2)
+          
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "ghcr.io/${{ github.repository }}:${VERSION_NUM}" >> $GITHUB_OUTPUT
+          echo "ghcr.io/${{ github.repository }}:${MINOR}" >> $GITHUB_OUTPUT
+          echo "ghcr.io/${{ github.repository }}:${MAJOR}" >> $GITHUB_OUTPUT
+          echo "ghcr.io/${{ github.repository }}:latest" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       
       - name: Build and push release image
         uses: docker/build-push-action@v5
@@ -90,24 +113,75 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.docker_tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
             BUILDKIT_INLINE_CACHE=1
             VERSION=${{ steps.version.outputs.version }}
       
+      - name: Build Linux binary archive
+        run: |
+          echo "Building Linux binary archive..."
+          VERSION=${{ steps.version.outputs.version }}
+          VERSION_NUM=${VERSION#v}
+          
+          # Use Docker buildx to extract binaries
+          docker buildx build \
+            --output type=local,dest=./dist/ \
+            --platform=linux/amd64 \
+            --target archive \
+            -f Dockerfile \
+            .
+          
+          # Create compressed archive
+          echo "Creating compressed archive..."
+          mkdir -p release-artifacts
+          tar czf release-artifacts/ollama-linux-amd64-sycl-${VERSION_NUM}.tgz -C ./dist/ .
+          
+          # Generate checksum
+          cd release-artifacts
+          sha256sum ollama-linux-amd64-sycl-${VERSION_NUM}.tgz > ollama-linux-amd64-sycl-${VERSION_NUM}.tgz.sha256
+          cat ollama-linux-amd64-sycl-${VERSION_NUM}.tgz.sha256
+          cd ..
+          
+          echo "Binary archive created successfully"
+          ls -lh release-artifacts/
+      
+      - name: Upload release artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          files: |
+            release-artifacts/ollama-linux-amd64-sycl-*.tgz
+            release-artifacts/ollama-linux-amd64-sycl-*.tgz.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Generate release summary
         run: |
+          VERSION=${{ steps.version.outputs.version }}
+          VERSION_NUM=${VERSION#v}
+          
           echo "## 🎉 Release ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Docker Images:**" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📦 Binary Release" >> $GITHUB_STEP_SUMMARY
+          echo "**Download:**" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "wget https://github.com/${{ github.repository }}/releases/download/${VERSION}/ollama-linux-amd64-sycl-${VERSION_NUM}.tgz" >> $GITHUB_STEP_SUMMARY
+          echo "tar xzf ollama-linux-amd64-sycl-${VERSION_NUM}.tgz" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 🐳 Docker Images" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.docker_tags.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           echo "**Usage:**" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository }}:${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker run --rm -it --device=/dev/dri ghcr.io/${{ github.repository }}:${VERSION}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

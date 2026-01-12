@@ -30,6 +30,24 @@ jobs:
         with:
           submodules: recursive
       
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          
+          # Remove unnecessary pre-installed software
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          
+          # Clean up Docker
+          docker system prune -af --volumes || true
+          
+          echo "Disk space after cleanup:"
+          df -h
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
@@ -52,7 +70,10 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha,prefix={{branch}}-
+            # Use branch prefix only for branch events (not tag events where {{branch}} is empty)
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            # Use standard sha- prefix for tag events
+            type=sha,prefix=sha-,enable=${{ github.ref_type == 'tag' }}
             type=raw,value=latest,enable={{is_default_branch}}
       
       - name: Build Docker image
