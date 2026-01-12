@@ -126,6 +126,7 @@ jobs:
           cat /tmp/changelog.md
       
       - name: Create Pull Request
+        id: cpr
         if: steps.check.outputs.has_changes == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
@@ -143,6 +144,12 @@ jobs:
             submodule-update
             dependencies
           assignees: ${{ github.repository_owner }}
+      
+      - name: Enable Pull Request Automerge
+        if: steps.cpr.outputs.pull-request-operation == 'created'
+        run: gh pr merge --squash --auto "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Generate summary
         if: always()
