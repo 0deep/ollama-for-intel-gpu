@@ -48,7 +48,8 @@ ollama-for-intel-gpu/
 ├── Dockerfile                  # Multi-stage Docker build
 ├── README.md                   # This file
 ├── scripts/
-│   └── build_linux.sh          # Linux build script
+│   ├── build_linux.sh          # Linux build script
+│   └── update_ggml_sycl.py     # GGML SYCL backend update script
 ├── ollama/                     # Ollama submodule (v0.15.4)
 └── ml/backend/ggml/ggml/
     └── src/ggml-sycl/         # SYCL backend implementation
@@ -130,6 +131,28 @@ Configuration:
 - SYCL Target: INTEL
 - DNN: Enabled (oneDNN)
 - F16: Enabled (half-precision)
+
+## Updating GGML SYCL Backend
+
+To update the GGML SYCL backend to the latest version from [llama.cpp](https://github.com/ggml-org/llama.cpp):
+
+```bash
+# Run the update script
+python3 scripts/update_ggml_sycl.py
+```
+
+This script will:
+- Fetch the latest SYCL backend code from llama.cpp master branch
+- Compare SHA hashes to detect changes
+- Backup existing files before updating
+- Download and install updated files
+- Provide a detailed report of changes
+
+**Note**: After updating, rebuild the project to incorporate the changes:
+```bash
+./scripts/build_linux.sh
+```
+
 
 ## Removed Features
 
