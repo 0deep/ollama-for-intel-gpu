@@ -4309,7 +4309,7 @@ static void ggml_backend_sycl_graph_compute_impl(ggml_backend_sycl_context * syc
         if (ggml_is_empty(node) || node->op == GGML_OP_RESHAPE || node->op == GGML_OP_TRANSPOSE || node->op == GGML_OP_VIEW || node->op == GGML_OP_PERMUTE || node->op == GGML_OP_NONE) {
             continue;
         }
-        // GGML_TENSOR_FLAG_COMPUTE not available in Ollama v0.15.4 - skip this check
+        // GGML_TENSOR_FLAG_COMPUTE not available in Ollama v0.15.6 - skip this check
 #ifndef NDEBUG
         assert(node->buffer->buft == ggml_backend_sycl_buffer_type(sycl_ctx->device));
         for (int j = 0; j < GGML_MAX_SRC; j++) {
@@ -4370,7 +4370,7 @@ static bool check_graph_compatibility(ggml_cgraph * cgraph) {
 #endif
 
 static ggml_status ggml_backend_sycl_graph_compute(ggml_backend_t backend, ggml_cgraph * cgraph, int batch_size) {
-    GGML_UNUSED(batch_size); // Not used in Ollama v0.15.4 but required by interface
+    GGML_UNUSED(batch_size); // Not used in Ollama v0.15.6 but required by interface
     auto * sycl_ctx = static_cast<ggml_backend_sycl_context *>(backend->context);
 
 #ifdef GGML_SYCL_GRAPH

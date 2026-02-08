@@ -4,7 +4,7 @@ Custom build of [Ollama](https://github.com/ollama/ollama) with optimized suppor
 
 ## Supported Models
 
-This build is fully compatible with **Ollama v0.15.4** and supports:
+This build is fully compatible with **Ollama v0.15.6** and supports:
 
 - **GPT-OSS 20B** - Open-source GPT model
 - **Qwen3 Series** - Qwen3-8B, Qwen3-14B, and embedding models
@@ -13,7 +13,7 @@ This build is fully compatible with **Ollama v0.15.4** and supports:
 
 ## Version Information
 
-- **Ollama Base Version**: v0.15.4 (commit: `6a7c3f18`)
+- **Ollama Base Version**: v0.15.6 (commit: `099a0f18`)
 - **Supported Backends**: CPU (multi-variant), SYCL (Intel GPU)
 
 ## Features
@@ -50,7 +50,7 @@ ollama-for-intel-gpu/
 ├── scripts/
 │   ├── build_linux.sh          # Linux build script
 │   └── update_ggml_sycl.py     # GGML SYCL backend update script
-├── ollama/                     # Ollama submodule (v0.15.4)
+├── ollama/                     # Ollama submodule (v0.15.6)
 └── ml/backend/ggml/ggml/
     └── src/ggml-sycl/         # SYCL backend implementation
 ```
