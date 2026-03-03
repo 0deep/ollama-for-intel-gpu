@@ -4,16 +4,22 @@ Custom build of [Ollama](https://github.com/ollama/ollama) with optimized suppor
 
 ## Supported Models
 
-This build is fully compatible with **Ollama v0.15.6** and supports:
+This build is fully compatible with **Ollama v0.17.5** and supports:
 
 - **GPT-OSS 20B** - Open-source GPT model
 - **Qwen3 Series** - Qwen3-8B, Qwen3-14B, and embedding models
 - **Ministral-3** - Mistral AI's latest compact model
+- **LFM-2 Series** - Liquid AI's high-performance compact model
 - **And most models supported by Ollama** - All models compatible with standard Ollama will work with this Intel GPU-optimized build
+
+## Integrations
+
+- **OpenClaw** - Supports [OpenClaw](https://docs.ollama.com/integrations/openclaw) for agentic tool use, TUI interface, and messaging app connections.
+
 
 ## Version Information
 
-- **Ollama Base Version**: v0.15.6 (commit: `099a0f18`)
+- **Ollama Base Version**: v0.17.5 (commit: `099a0f18`)
 - **Supported Backends**: CPU (multi-variant), SYCL (Intel GPU)
 
 ## Features
@@ -50,7 +56,7 @@ ollama-for-intel-gpu/
 ├── scripts/
 │   ├── build_linux.sh          # Linux build script
 │   └── update_ggml_sycl.py     # GGML SYCL backend update script
-├── ollama/                     # Ollama submodule (v0.15.6)
+├── ollama/                     # Ollama submodule (v0.17.5)
 └── ml/backend/ggml/ggml/
     └── src/ggml-sycl/         # SYCL backend implementation
 ```

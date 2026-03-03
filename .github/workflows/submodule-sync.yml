@@ -8,13 +8,13 @@ on:
   # Manual execution enabled
   workflow_dispatch:
     inputs:
-      branch:
-        description: 'Ollama branch to sync (default: main)'
+      version:
+        description: 'Specific Ollama version to sync (e.g., v0.6.1). Leave blank to use latest release.'
         required: false
-        default: 'main'
+        default: ''
         type: string
       force_update:
-        description: 'Force update even if no changes'
+        description: 'Force update even if version has not changed'
         required: false
         default: false
         type: boolean
@@ -22,6 +22,7 @@ on:
 env:
   SUBMODULE_PATH: ollama
   SUBMODULE_NAME: ollama
+  OLLAMA_REPO: ollama/ollama
 
 jobs:
   check-and-update:
@@ -32,6 +33,7 @@ jobs:
       
     outputs:
       has_changes: ${{ steps.check.outputs.has_changes }}
+      new_version: ${{ steps.check.outputs.new_version }}
       new_commit: ${{ steps.check.outputs.new_commit }}
       
     steps:
@@ -47,57 +49,86 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       
-      - name: Get current submodule commit
+      - name: Get current submodule version
         id: current
         run: |
           cd ${{ env.SUBMODULE_PATH }}
+
           CURRENT_COMMIT=$(git rev-parse HEAD)
           echo "commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
           echo "Current submodule commit: $CURRENT_COMMIT"
+
+          # Find the tag pointing to (or nearest to) the current commit
+          CURRENT_VERSION=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
+          if [ -z "$CURRENT_VERSION" ]; then
+            CURRENT_VERSION=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "unknown")
+          fi
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current submodule version: $CURRENT_VERSION"
       
-      - name: Fetch latest submodule changes
+      - name: Fetch latest Ollama release version
         id: fetch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Determine target version
+          INPUT_VERSION="${{ inputs.version }}"
+
+          if [ -n "$INPUT_VERSION" ]; then
+            # Use manually-specified version
+            TARGET_VERSION="$INPUT_VERSION"
+            echo "Using manually specified version: $TARGET_VERSION"
+          else
+            # Fetch the latest stable release from GitHub API
+            TARGET_VERSION=$(gh release view --repo ${{ env.OLLAMA_REPO }} --json tagName -q '.tagName' 2>/dev/null || echo "")
+            if [ -z "$TARGET_VERSION" ]; then
+              echo "❌ Failed to fetch latest release version from GitHub API"
+              exit 1
+            fi
+            echo "Latest upstream release: $TARGET_VERSION"
+          fi
+
+          echo "version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+
+          # Resolve the commit SHA for this tag in the submodule
           cd ${{ env.SUBMODULE_PATH }}
-          
-          # Use specified branch for manual execution, otherwise main
-          TARGET_BRANCH="${{ inputs.branch || 'main' }}"
-          echo "Target branch: $TARGET_BRANCH"
-          
-          git fetch origin $TARGET_BRANCH
-          LATEST_COMMIT=$(git rev-parse origin/$TARGET_BRANCH)
-          echo "latest=$LATEST_COMMIT" >> $GITHUB_OUTPUT
-          echo "Latest upstream commit: $LATEST_COMMIT"
-          
-          # Get commit message
-          COMMIT_MSG=$(git log --format=%B -n 1 $LATEST_COMMIT | head -n 1)
-          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
-          echo "Latest commit message: $COMMIT_MSG"
+          git fetch --tags origin
+          TARGET_COMMIT=$(git rev-list -n 1 "refs/tags/$TARGET_VERSION" 2>/dev/null || echo "")
+          if [ -z "$TARGET_COMMIT" ]; then
+            echo "❌ Could not resolve commit for tag: $TARGET_VERSION"
+            exit 1
+          fi
+          echo "commit=$TARGET_COMMIT" >> $GITHUB_OUTPUT
+          echo "Target commit for $TARGET_VERSION: $TARGET_COMMIT"
       
-      - name: Check for changes
+      - name: Check for version change
         id: check
         run: |
-          CURRENT="${{ steps.current.outputs.commit }}"
-          LATEST="${{ steps.fetch.outputs.latest }}"
+          CURRENT_VERSION="${{ steps.current.outputs.version }}"
+          TARGET_VERSION="${{ steps.fetch.outputs.version }}"
+          CURRENT_COMMIT="${{ steps.current.outputs.commit }}"
+          TARGET_COMMIT="${{ steps.fetch.outputs.commit }}"
           FORCE="${{ inputs.force_update }}"
-          
-          if [ "$CURRENT" != "$LATEST" ] || [ "$FORCE" == "true" ]; then
+
+          echo "Current version : $CURRENT_VERSION  ($CURRENT_COMMIT)"
+          echo "Target version  : $TARGET_VERSION  ($TARGET_COMMIT)"
+
+          if [ "$CURRENT_VERSION" != "$TARGET_VERSION" ] || [ "$FORCE" == "true" ]; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "new_commit=$LATEST" >> $GITHUB_OUTPUT
-            echo "✅ Changes detected or force update enabled"
-            echo "  Current: $CURRENT"
-            echo "  Latest:  $LATEST"
+            echo "new_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+            echo "new_commit=$TARGET_COMMIT" >> $GITHUB_OUTPUT
+            echo "✅ Version change detected (or force update enabled)"
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ No changes detected"
+            echo "ℹ️ Already at the latest release version ($CURRENT_VERSION). No update needed."
           fi
       
-      - name: Update submodule
+      - name: Checkout target release tag in submodule
         if: steps.check.outputs.has_changes == 'true'
         run: |
           cd ${{ env.SUBMODULE_PATH }}
-          TARGET_BRANCH="${{ inputs.branch || 'main' }}"
-          git checkout origin/$TARGET_BRANCH
+          TARGET_VERSION="${{ steps.check.outputs.new_version }}"
+          git checkout "refs/tags/$TARGET_VERSION"
           
           cd ..
           git add ${{ env.SUBMODULE_PATH }}
@@ -108,21 +139,27 @@ jobs:
         run: |
           cd ${{ env.SUBMODULE_PATH }}
           
-          CURRENT="${{ steps.current.outputs.commit }}"
-          LATEST="${{ steps.fetch.outputs.latest }}"
-          
+          CURRENT_COMMIT="${{ steps.current.outputs.commit }}"
+          TARGET_COMMIT="${{ steps.check.outputs.new_commit }}"
+          CURRENT_VERSION="${{ steps.current.outputs.version }}"
+          TARGET_VERSION="${{ steps.check.outputs.new_version }}"
+
           # Generate changelog
-          echo "## 📝 Submodule Update: Ollama" > /tmp/changelog.md
-          echo "" >> /tmp/changelog.md
-          echo "**Updated from:** \`$CURRENT\`" >> /tmp/changelog.md
-          echo "**Updated to:** \`$LATEST\`" >> /tmp/changelog.md
-          echo "" >> /tmp/changelog.md
-          echo "### Recent Changes:" >> /tmp/changelog.md
-          echo "" >> /tmp/changelog.md
-          
-          # Last 20 commit logs
-          git log --pretty=format:"- %s (%h) - %an" $CURRENT..$LATEST | head -20 >> /tmp/changelog.md
-          
+          {
+            echo "## 📝 Submodule Update: Ollama"
+            echo ""
+            echo "**Previous version:** \`$CURRENT_VERSION\` (\`$CURRENT_VERSION\`)"
+            echo "**New version:** \`$TARGET_VERSION\`"
+            echo ""
+            echo "### 📋 Upstream Release Notes"
+            echo ""
+            echo "See the full release notes at: https://github.com/${{ env.OLLAMA_REPO }}/releases/tag/$TARGET_VERSION"
+            echo ""
+            echo "### Recent Commits:"
+            echo ""
+            git log --pretty=format:"- %s (%h) - %an" "$CURRENT_COMMIT..$TARGET_COMMIT" | head -30
+          } > /tmp/changelog.md
+
           cat /tmp/changelog.md
       
       - name: Create Pull Request
@@ -132,12 +169,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: |
-            chore: update ollama submodule to ${{ steps.check.outputs.new_commit }}
+            chore: update ollama submodule to ${{ steps.check.outputs.new_version }}
             
-            Updates ollama submodule from ${{ steps.current.outputs.commit }} to ${{ steps.check.outputs.new_commit }}
+            Updates ollama submodule from ${{ steps.current.outputs.version }} to ${{ steps.check.outputs.new_version }}
           branch: auto/update-ollama-submodule
           delete-branch: true
-          title: '🔄 Auto: Update Ollama submodule'
+          title: '🔄 Auto: Update Ollama submodule to ${{ steps.check.outputs.new_version }}'
           body-path: /tmp/changelog.md
           labels: |
             automated
@@ -154,15 +191,16 @@ jobs:
       - name: Generate summary
         if: always()
         run: |
-          echo "## 🔄 Submodule Sync Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Submodule:** ${{ env.SUBMODULE_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Current Commit:** \`${{ steps.current.outputs.commit }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Latest Commit:** \`${{ steps.fetch.outputs.latest }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${{ steps.check.outputs.has_changes }}" == "true" ]; then
-            echo "**Status:** ✅ Changes detected - PR created" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "**Status:** ℹ️ No changes - Already up to date" >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "## 🔄 Submodule Sync Summary"
+            echo ""
+            echo "**Submodule:** ${{ env.SUBMODULE_NAME }}"
+            echo "**Current version:** \`${{ steps.current.outputs.version }}\`"
+            echo "**Latest release:** \`${{ steps.fetch.outputs.version }}\`"
+            echo ""
+            if [ "${{ steps.check.outputs.has_changes }}" == "true" ]; then
+              echo "**Status:** ✅ Version change detected — PR created for ${{ steps.check.outputs.new_version }}"
+            else
+              echo "**Status:** ℹ️ Already up-to-date with latest release (${{ steps.fetch.outputs.version }})"
+            fi
+          } >> $GITHUB_STEP_SUMMARY
