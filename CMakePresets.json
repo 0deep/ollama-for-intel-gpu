@@ -47,10 +47,7 @@
     },
     {
       "name": "CPU",
-      "configurePreset": "Default",
-      "targets": [
-        "ggml-cpu"
-      ]
+      "configurePreset": "Default"
     },
     {
       "name": "SYCL_INTEL",

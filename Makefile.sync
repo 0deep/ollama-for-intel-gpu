@@ -1,0 +1,129 @@
+UPSTREAM=https://github.com/ggml-org/llama.cpp.git
+WORKDIR=ollama/llama/vendor
+FETCH_HEAD=c5a778891ba0ddbd4cbb507c823f970595b1adc2
+
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo "    sync                 Sync with upstream repositories"
+	@echo "    checkout             Checkout upstream repository"
+	@echo "    apply-patches        Apply patches to local repository"
+	@echo "    format-patches       Format patches from local repository"
+	@echo "    clean                Clean local repository"
+	@echo
+	@echo "Example:"
+	@echo "    make -f $(lastword $(MAKEFILE_LIST)) clean apply-patches sync"
+
+.PHONY: sync
+sync: ollama/llama/build-info.cpp ollama/ml/backend/ggml/ggml/src/ggml-metal/ggml-metal-embed.metal
+
+ollama/llama/build-info.cpp: ollama/llama/build-info.cpp.in ollama/llama/llama.cpp
+	sed -e 's|@FETCH_HEAD@|$(FETCH_HEAD)|' <$< >$@
+
+ollama/ml/backend/ggml/ggml/src/ggml-metal/ggml-metal-embed.metal: ollama/ml/backend/ggml/ggml
+	cd $(@D) && go generate
+
+.PHONY: ollama/llama/llama.cpp
+ollama/llama/llama.cpp: ollama/llama/vendor
+	rsync -arvzc --delete -f "include LICENSE" -f "merge $@/.rsync-filter" $(addprefix $<,/LICENSE /) $@
+
+.PHONY: ollama/ml/backend/ggml/ggml
+ollama/ml/backend/ggml/ggml: ollama/llama/vendor
+	rsync -arvzc --delete -f "include LICENSE" -f "merge $@/.rsync-filter" $(addprefix $<,/LICENSE /ggml/) $@
+
+OLLAMA_PATCH_DIR=ollama/llama/patches
+LOCAL_PATCH_DIR=patches
+INCLUDE_PATCHES= \
+	0004-solar-pro.patch \
+	0010-fix-string-arr-kv-loading.patch \
+	0011-ollama-debug-tensor.patch \
+	0012-add-ollama-vocab-for-grammar-support.patch \
+	0013-add-argsort-and-cuda-copy-for-i32.patch \
+	0014-graph-memory-reporting-on-failure.patch \
+	0016-add-C-API-for-mtmd_input_text.patch \
+	0017-no-power-throttling-win32-with-gnuc.patch \
+	0018-ggml-Add-batch-size-hint.patch \
+	0020-ggml-No-alloc-mode.patch \
+	0021-decode-disable-output_all.patch \
+	0023-harden-uncaught-exception-registration.patch \
+	0024-GPU-discovery-enhancements.patch \
+	0025-NVML-fallback-for-unified-memory-GPUs.patch \
+	0026-report-LoadLibrary-failures.patch \
+	0028-Add-memory-detection-using-DXGI-PDH.patch \
+	0029-ggml-cuda-skip-large-batches.patch \
+	0031-win-exit-instead-of-abort.patch \
+	0032-ggml-add-batch-size-hint-for-sycl.patch
+
+OLLAMA_PATCHES=$(wildcard $(OLLAMA_PATCH_DIR)/*.patch)
+LOCAL_PATCHES=$(wildcard $(LOCAL_PATCH_DIR)/*.patch)
+# Only use explicitly included patches, and filter out those with overrides in the local directory
+OLLAMA_PATCHES_TO_USE=$(filter-out $(addprefix $(OLLAMA_PATCH_DIR)/,$(notdir $(LOCAL_PATCHES))),$(filter $(addprefix $(OLLAMA_PATCH_DIR)/,$(INCLUDE_PATCHES)),$(OLLAMA_PATCHES)))
+
+OLLAMA_SUBREPO=ollama
+
+PATCHES=$(shell printf "%s\n" $(LOCAL_PATCHES) $(OLLAMA_PATCHES_TO_USE) | awk -F/ '{print $$NF, $$0}' | sort | cut -d' ' -f2-)
+PATCHED=$(addsuffix .patched,$(PATCHES))
+
+.PHONY: apply-patches
+.NOTPARALLEL:
+apply-patches: $(PATCHED)
+
+$(LOCAL_PATCH_DIR)/fix-%.patch.patched: $(LOCAL_PATCH_DIR)/fix-%.patch
+	@if git -C $(OLLAMA_SUBREPO) apply --3way $(realpath $<); then \
+		touch $@;                                            \
+	else                                                     \
+		echo "Ollama patch failed: $<. Resolve any conflicts then continue."; \
+		exit 1;                                              \
+	fi
+
+$(OLLAMA_PATCH_DIR)/%.patch.patched: $(OLLAMA_PATCH_DIR)/%.patch
+	@if git -C $(WORKDIR) am -3 $(realpath $<); then \
+		touch $@;                                            \
+	else                                                     \
+		echo "Patch failed: $<. Resolve any conflicts then continue.";                        \
+		echo "1. Run 'git -C $(WORKDIR) am --continue'";                                    \
+		echo "2. Run 'make -f $(lastword $(MAKEFILE_LIST)) format-patches'";                \
+		echo "3. Run 'make -f $(lastword $(MAKEFILE_LIST)) clean apply-patches'";           \
+		exit 1;                                              \
+	fi
+
+$(LOCAL_PATCH_DIR)/%.patch.patched: $(LOCAL_PATCH_DIR)/%.patch
+	@if git -C $(WORKDIR) am -3 $(realpath $<); then \
+		touch $@;                                            \
+	else                                                     \
+		echo "Patch failed: $<. Resolve any conflicts then continue.";                        \
+		echo "1. Run 'git -C $(WORKDIR) am --continue'";                                    \
+		echo "2. Run 'make -f $(lastword $(MAKEFILE_LIST)) format-patches'";                \
+		echo "3. Run 'make -f $(lastword $(MAKEFILE_LIST)) clean apply-patches'";           \
+		exit 1;                                              \
+	fi
+
+.PHONY: checkout
+checkout: $(WORKDIR)
+	git -C $(WORKDIR) fetch
+	git -C $(WORKDIR) checkout -f $(FETCH_HEAD)
+
+$(WORKDIR):
+	git clone $(UPSTREAM) $(WORKDIR)
+
+.PHONY: format-patches
+format-patches: $(LOCAL_PATCH_DIR)
+	git -C $(WORKDIR) format-patch \
+		--no-signature \
+		--no-numbered \
+		--zero-commit \
+		-o $(realpath $(LOCAL_PATCH_DIR)) \
+		$(FETCH_HEAD)
+
+.PHONY: clean
+clean: checkout
+	@git -C $(WORKDIR) am --abort || true
+	@git -C $(OLLAMA_SUBREPO) am --abort || true
+	git submodule update --init --recursive --force $(OLLAMA_SUBREPO)
+	git -C $(OLLAMA_SUBREPO) checkout -f $$(git rev-parse :$(OLLAMA_SUBREPO))
+	git -C $(OLLAMA_SUBREPO) clean -fd || true
+	$(RM) $(OLLAMA_PATCH_DIR)/*.patch.patched $(LOCAL_PATCH_DIR)/*.patch.patched
+
+.PHONY: print-base
+print-base:
+	@echo $(FETCH_HEAD)

@@ -1,0 +1,18 @@
+# .dockerignore
+
+# Host build artefacts
+dist/
+build/
+.cache/
+.gocache/
+
+# IDE / OS metadata
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.log
+
+# Local ml/ working copy — derived from vendor+patches, rebuilt in patch-source stage.
+# (ollama/ml/ is kept because it contains Go wrapper files needed by the Go build)
+ml/

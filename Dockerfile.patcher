@@ -1,0 +1,26 @@
+FROM alpine:latest
+
+# Install minimal packages required for patching and synchronization
+RUN apk add --no-cache \
+    git \
+    make \
+    rsync \
+    go \
+    ca-certificates \
+    bash
+
+# Configure default Git user information for performing git am commands
+RUN git config --global user.email "docker@patch.local" \
+    && git config --global user.name "Docker Patcher"
+
+# Mark all directories as safe for Git operations to avoid ownership issues with submodules
+RUN git config --global --add safe.directory '*'
+
+WORKDIR /workspace
+
+# Disable Go modules to prevent errors during go generate when go.mod is missing
+# outside the working directory in modern Go versions on Alpine.
+ENV GO111MODULE=off
+
+# Default to running make; targets and options can be overridden via CMD arguments.
+CMD ["make"]

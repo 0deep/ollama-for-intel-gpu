@@ -1,4 +1,4 @@
-name: Sync Submodule (Ollama)
+name: Ollama Version Sync
 
 on:
   # Run daily at 3 AM (UTC) - Noon in Korea Time

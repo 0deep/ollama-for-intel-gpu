@@ -4,10 +4,10 @@ Custom build of [Ollama](https://github.com/ollama/ollama) with optimized suppor
 
 ## Supported Models
 
-This build is fully compatible with **Ollama v0.17.5** and supports:
+This build is fully compatible with **Ollama v0.17.7** and supports:
 
 - **GPT-OSS 20B** - Open-source GPT model
-- **Qwen3 Series** - Qwen3-8B, Qwen3-14B, and embedding models
+- **Qwen3.5 & Qwen3 Series** - Supports the latest Qwen3.5 models along with Qwen3
 - **Ministral-3** - Mistral AI's latest compact model
 - **LFM-2 Series** - Liquid AI's high-performance compact model
 - **And most models supported by Ollama** - All models compatible with standard Ollama will work with this Intel GPU-optimized build
@@ -19,7 +19,7 @@ This build is fully compatible with **Ollama v0.17.5** and supports:
 
 ## Version Information
 
-- **Ollama Base Version**: v0.17.5 (commit: `099a0f18`)
+- **Ollama Base Version**: v0.17.7 (commit: `9b0c7cc7`)
 - **Supported Backends**: CPU (multi-variant), SYCL (Intel GPU)
 
 ## Features
@@ -52,13 +52,14 @@ ollama-for-intel-gpu/
 ├── CMakeLists.txt              # Main CMake configuration
 ├── CMakePresets.json           # CMake presets for CPU and SYCL builds
 ├── Dockerfile                  # Multi-stage Docker build
+├── Dockerfile.patcher          # Patcher environment
+├── Makefile.sync               # Sync and patch logic
 ├── README.md                   # This file
 ├── scripts/
 │   ├── build_linux.sh          # Linux build script
-│   └── update_ggml_sycl.py     # GGML SYCL backend update script
-├── ollama/                     # Ollama submodule (v0.17.5)
-└── ml/backend/ggml/ggml/
-    └── src/ggml-sycl/         # SYCL backend implementation
+│   └── patch.sh                # Patch & Sync backend update script
+├── patches/                    # Custom .patch files
+└── ollama/                     # Ollama submodule (don't edit directly!)
 ```
 
 ## Building
@@ -70,9 +71,37 @@ ollama-for-intel-gpu/
 git clone --recursive https://github.com/your-repo/ollama-for-intel-gpu.git
 cd ollama-for-intel-gpu
 
+# Apply patches and sync (Required before building)
+./scripts/patch.sh
+
 # Build using Podman/Docker
 ./scripts/build_linux.sh
 ```
+
+## Patch Management
+
+This project uses a patch-based workflow to maintain custom changes without directly modifying submodules. **Do not edit files in `ollama/` directly.**
+
+### Applying Patches
+
+To apply all registered patches and sync the source code:
+
+```bash
+./scripts/patch.sh
+```
+
+### Creating New Patches
+
+1.  Modify code in `ollama/` for testing.
+2.  Generate a patch file using `git diff`:
+    ```bash
+    git -C ollama/ vendor/ > patches/your-fix.patch
+    ```
+3.  Register the patch in `Makefile.sync`.
+4.  Run `./scripts/patch.sh` to verify and sync.
+
+> [!IMPORTANT]
+> Any direct changes to submodules will be overwritten when running the sync process. Always use `.patch` files for permanent changes.
 
 ### Build Output
 

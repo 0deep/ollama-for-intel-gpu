@@ -16,3 +16,5 @@ llama/build
 llama/vendor
 /ollama
 *.log
+patches/*.patched
+.agents/

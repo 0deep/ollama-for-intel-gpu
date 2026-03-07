@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: 0deep <kimexpon@gmail.com>
+Date: Fri, 6 Mar 2026 14:24:16 +0900
+Subject: [PATCH] add batch size hint for sycl
+
+---
+ ggml/src/ggml-sycl/ggml-sycl.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/ggml/src/ggml-sycl/ggml-sycl.cpp b/ggml/src/ggml-sycl/ggml-sycl.cpp
+index 0614d7e8f..a0fe5ffa6 100644
+--- a/ggml/src/ggml-sycl/ggml-sycl.cpp
++++ b/ggml/src/ggml-sycl/ggml-sycl.cpp
+@@ -4371,7 +4371,7 @@ static bool check_graph_compatibility(ggml_cgraph * cgraph) {
+ }
+ #endif
+ 
+-static ggml_status ggml_backend_sycl_graph_compute(ggml_backend_t backend, ggml_cgraph * cgraph) {
++static ggml_status ggml_backend_sycl_graph_compute(ggml_backend_t backend, ggml_cgraph * cgraph, int batch_size) {
+     auto * sycl_ctx = static_cast<ggml_backend_sycl_context *>(backend->context);
+ 
+ #ifdef GGML_SYCL_GRAPH
+@@ -4414,6 +4414,8 @@ static ggml_status ggml_backend_sycl_graph_compute(ggml_backend_t backend, ggml_
+     {
+         ggml_backend_sycl_graph_compute_impl(sycl_ctx, cgraph);
+     }
++    
++    GGML_UNUSED(batch_size);
+     return GGML_STATUS_SUCCESS;
+ }
+ 
+-- 
+2.43.0
+

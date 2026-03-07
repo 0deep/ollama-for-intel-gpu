@@ -47,8 +47,8 @@ COPY CMakeLists.txt CMakePresets.json .
 COPY ollama/ml/backend/ggml/ggml ml/backend/ggml/ggml
 RUN --mount=type=cache,target=/root/.ccache \
     cmake --preset 'CPU' \
-        && cmake --build --parallel ${PARALLEL} --preset 'CPU' \
-        && cmake --install build --component CPU --strip --parallel ${PARALLEL}
+    && cmake --build --parallel ${PARALLEL} --preset 'CPU' \
+    && cmake --install build --component CPU --strip --parallel ${PARALLEL}
 
 FROM intel/oneapi-basekit:latest AS sycl-build
 ARG CMAKEVERSION
@@ -57,12 +57,12 @@ RUN apt-get update \
     && curl -fsSL https://github.com/Kitware/CMake/releases/download/v${CMAKEVERSION}/cmake-${CMAKEVERSION}-linux-$(uname -m).tar.gz | tar xz -C /usr/local --strip-components 1
 COPY CMakeLists.txt CMakePresets.json .
 COPY ollama/ml/backend/ggml/ggml ml/backend/ggml/ggml
-COPY ml/backend/ggml/ggml/src/ggml-sycl ml/backend/ggml/ggml/src/ggml-sycl
+COPY ollama/llama/vendor/ggml/src/ggml-sycl ml/backend/ggml/ggml/src/ggml-sycl
 ARG PARALLEL
 RUN --mount=type=cache,target=/root/.ccache \
     cmake --preset 'SYCL_INTEL' \
-        && cmake --build --parallel ${PARALLEL} --preset 'SYCL_INTEL' \
-        && cmake --install build --component SYCL --strip --parallel ${PARALLEL}
+    && cmake --build --parallel ${PARALLEL} --preset 'SYCL_INTEL' \
+    && cmake --install build --component SYCL --strip --parallel ${PARALLEL}
 # Copy Intel oneAPI runtime libraries required by libggml-sycl.so (based on ldd analysis)
 # Essential libraries identified from ldd output
 RUN mkdir -p /build/lib/ollama && \
@@ -89,9 +89,9 @@ RUN mkdir -p /build/lib/ollama && \
     cp -L /opt/intel/oneapi/umf/latest/lib/libumf.so.1 /build/lib/ollama/ 2>/dev/null || true
 # Set RPATH to $ORIGIN so libraries are found in the same directory
 RUN for lib in /build/lib/ollama/*.so*; do \
-        if [ -f "$lib" ] && [ ! -L "$lib" ]; then \
-            patchelf --set-rpath '$ORIGIN' "$lib" 2>/dev/null || true; \
-        fi; \
+    if [ -f "$lib" ] && [ ! -L "$lib" ]; then \
+    patchelf --set-rpath '$ORIGIN' "$lib" 2>/dev/null || true; \
+    fi; \
     done
 
 FROM --platform=linux/amd64 scratch AS amd64

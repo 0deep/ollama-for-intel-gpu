@@ -1,0 +1,111 @@
+diff --git a/llama/llama.cpp/.rsync-filter b/llama/llama.cpp/.rsync-filter
+index 7987be1c..0c87d929 100644
+--- a/llama/llama.cpp/.rsync-filter
++++ b/llama/llama.cpp/.rsync-filter
+@@ -6,6 +6,7 @@ include /common/common.*
+ include /common/json-schema-to-grammar.*
+ include /common/json.*
+ include /common/log.*
++include /common/unicode.*
+ include /common/sampling.*
+ include /include/
+ include /include/llama.*
+diff --git a/llama/llama.cpp/common/common.go b/llama/llama.cpp/common/common.go
+index e11bb167..7a2f1082 100644
+--- a/llama/llama.cpp/common/common.go
++++ b/llama/llama.cpp/common/common.go
+@@ -1,6 +1,6 @@
+ package common
+ 
+ // #cgo CXXFLAGS: -std=c++17
+-// #cgo CPPFLAGS: -I${SRCDIR}/../include -I${SRCDIR}/../vendor
++// #cgo CPPFLAGS: -I${SRCDIR}/../include -I${SRCDIR}/../vendor -I${SRCDIR}/../src
+ // #cgo CPPFLAGS: -I${SRCDIR}/../../../ml/backend/ggml/ggml/include
+ import "C"
+diff --git a/llama/llama.cpp/src/models/models.go b/llama/llama.cpp/src/models/models.go
+index c6c42b6f..675a1815 100644
+--- a/llama/llama.cpp/src/models/models.go
++++ b/llama/llama.cpp/src/models/models.go
+@@ -1,6 +1,6 @@
+ package models
+ 
+ // #cgo CXXFLAGS: -std=c++17
+-// #cgo CPPFLAGS: -I${SRCDIR}/../../include -I${SRCDIR}/../../vendor
++// #cgo CPPFLAGS: -I${SRCDIR}/../../include -I${SRCDIR}/../../vendor -I${SRCDIR}/..
+ // #cgo CPPFLAGS: -I${SRCDIR}/../../../../ml/backend/ggml/ggml/include
+ import "C"
+diff --git a/llama/llama.go b/llama/llama.go
+index 87844f2a..39d09590 100644
+--- a/llama/llama.go
++++ b/llama/llama.go
+@@ -82,7 +82,7 @@ func EnumerateGPUs() []Devices {
+ 			C.ggml_backend_dev_get_props(device, &props)
+ 			ids = append(ids, Devices{
+ 				DeviceID: ml.DeviceID{
+-					ID:      C.GoString(props.id),
++					ID:      C.GoString(props.device_id),
+ 					Library: C.GoString(props.library),
+ 				},
+ 				LlamaID: uint64(i),
+@@ -352,7 +352,7 @@ func (m *Model) ApplyLoraFromFile(context *Context, loraPath string, scale float
+ 
+ 	err := -1
+ 	if loraAdapter != nil {
+-		err = int(C.llama_set_adapter_lora(context.c, loraAdapter, C.float(scale)))
++		err = int(C.llama_set_adapters_lora(context.c, &loraAdapter, 1, (*C.float)(&scale)))
+ 	}
+ 	if err != 0 {
+ 		return errors.New("error applying lora from file")
+diff --git a/llama/sampling_ext.cpp b/llama/sampling_ext.cpp
+index 9ae5fd57..8ad39474 100644
+--- a/llama/sampling_ext.cpp
++++ b/llama/sampling_ext.cpp
+@@ -72,7 +72,7 @@ struct llama_vocab * llama_load_vocab_from_file(const char * fname) {
+     try {
+         const auto kv = LLM_KV(LLM_ARCH_UNKNOWN);
+         std::vector<std::string> splits = {};
+-        llama_model_loader ml(std::string(fname), splits, false, false, false, nullptr, nullptr);
++        llama_model_loader ml(std::string(fname), splits, false, false, false, false, nullptr, nullptr);
+         vocab->load(ml, kv);
+     } catch (const std::exception & err) {
+         LLAMA_LOG_ERROR("%s: error loading model: %s\n", __func__, err.what());
+diff --git a/ml/backend/ggml/ggml.go b/ml/backend/ggml/ggml.go
+index c2ce30dd..f0c3dfcf 100644
+--- a/ml/backend/ggml/ggml.go
++++ b/ml/backend/ggml/ggml.go
+@@ -172,7 +172,7 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
+ 	requiredMemory.CPU.Name = C.GoString(C.ggml_backend_dev_name(cpuDeviceBufferType.d))
+ 	var props C.struct_ggml_backend_dev_props
+ 	C.ggml_backend_dev_get_props(cpuDeviceBufferType.d, &props)
+-	requiredMemory.CPU.ID = C.GoString(props.id)
++	requiredMemory.CPU.ID = C.GoString(props.device_id)
+ 	requiredMemory.CPU.Library = C.GoString(props.library)
+ 	requiredMemory.CPU.Weights = make([]uint64, blocks+1)
+ 	requiredMemory.CPU.Cache = make([]uint64, blocks+1)
+@@ -191,7 +191,7 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
+ 		requiredMemory.GPUs[i].Name = C.GoString(C.ggml_backend_dev_name(d))
+ 		var props C.struct_ggml_backend_dev_props
+ 		C.ggml_backend_dev_get_props(d, &props)
+-		requiredMemory.GPUs[i].ID = C.GoString(props.id)
++		requiredMemory.GPUs[i].ID = C.GoString(props.device_id)
+ 		requiredMemory.GPUs[i].Library = C.GoString(props.library)
+ 		requiredMemory.GPUs[i].Weights = make([]uint64, blocks+1)
+ 		requiredMemory.GPUs[i].Cache = make([]uint64, blocks+1)
+@@ -715,7 +715,7 @@ func (b *Backend) BackendDevices() []ml.DeviceInfo {
+ 		C.ggml_backend_dev_get_props(dev, &props)
+ 		info.Name = C.GoString(props.name)
+ 		info.Description = C.GoString(props.description)
+-		info.ID = C.GoString(props.id)
++		info.ID = C.GoString(props.device_id)
+ 		info.Library = C.GoString(props.library)
+ 		info.ComputeMajor = (int)(props.compute_major)
+ 		info.ComputeMinor = (int)(props.compute_minor)
+@@ -857,7 +857,7 @@ func (c *Context) Reserve() {
+ 	}
+ 
+ 	for i := range c.b.schedBackends {
+-		bufferSize := C.ggml_backend_sched_get_attempted_buffer_size(c.b.sched, c.b.schedBackends[i])
++		bufferSize := C.ggml_backend_sched_get_buffer_size(c.b.sched, c.b.schedBackends[i])
+ 		c.b.btDeviceMemory[c.b.schedBufts[i]].Graph += uint64(bufferSize)
+ 
+ 		logutil.Trace("compute graph", "backend", C.GoString(C.ggml_backend_name(c.b.schedBackends[i])),
