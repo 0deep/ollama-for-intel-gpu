@@ -1,0 +1,20 @@
+diff --git a/llama/llama.cpp/.rsync-filter b/llama/llama.cpp/.rsync-filter
+index 0c87d929..88e475ad 100644
+--- a/llama/llama.cpp/.rsync-filter
++++ b/llama/llama.cpp/.rsync-filter
+@@ -8,12 +8,15 @@ include /common/json.*
+ include /common/log.*
+ include /common/unicode.*
+ include /common/sampling.*
++include /common/reasoning-budget.*
+ include /include/
+ include /include/llama.*
+ include /include/llama-*.*
+ include /tools/
+ include /tools/mtmd/
+ include /tools/mtmd/*.h
++include /tools/mtmd/debug/
++include /tools/mtmd/debug/*
+ include /tools/mtmd/clip.cpp
+ include /tools/mtmd/mtmd.cpp
+ include /tools/mtmd/mtmd-audio.cpp

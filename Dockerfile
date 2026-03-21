@@ -26,16 +26,19 @@ RUN curl -fsSL https://github.com/Kitware/CMake/releases/download/v${CMAKEVERSIO
 ENV LDFLAGS=-s
 
 FROM base AS build
+ARG VERSION
 WORKDIR /go/src/github.com/ollama/ollama
 COPY ollama/go.mod ollama/go.sum .
 RUN curl -fsSL https://golang.org/dl/go$(awk '/^go/ { print $2 }' go.mod).linux-$(case $(uname -m) in x86_64) echo amd64 ;; aarch64) echo arm64 ;; esac).tar.gz | tar xz -C /usr/local
 ENV PATH=/usr/local/go/bin:$PATH
 RUN go mod download
 COPY ollama/ .
-ARG GOFLAGS="'-ldflags=-w -s'"
+ARG GOFLAGS
 ENV CGO_ENABLED=1
 ARG CGO_CFLAGS
 ARG CGO_CXXFLAGS
+ENV CGO_CFLAGS="-DGGML_SYCL -I/go/src/github.com/ollama/ollama/llama/llama.cpp/src -I/go/src/github.com/ollama/ollama/llama/llama.cpp/common"
+ENV CGO_CXXFLAGS="-DGGML_SYCL -I/go/src/github.com/ollama/ollama/llama/llama.cpp/src -I/go/src/github.com/ollama/ollama/llama/llama.cpp/common"
 RUN --mount=type=cache,target=/root/.cache/go-build \
     go build -trimpath -buildmode=pie -o /bin/ollama .
 
@@ -74,6 +77,7 @@ RUN mkdir -p /build/lib/ollama && \
     cp -L /opt/intel/oneapi/compiler/latest/lib/libintlc.so.5 /build/lib/ollama/ && \
     cp -L /opt/intel/oneapi/compiler/latest/lib/libur_adapter_opencl.so.0 /build/lib/ollama/ && \
     cp -L /opt/intel/oneapi/compiler/latest/lib/libur_loader.so.0 /build/lib/ollama/ && \
+    cp -L /opt/intel/oneapi/compiler/latest/lib/libur_adapter_level_zero_v2.so* /build/lib/ollama/ && \
     # DNNL (Deep Neural Network Library)
     cp -L /opt/intel/oneapi/dnnl/latest/lib/libdnnl.so.3 /build/lib/ollama/ && \
     # TBB (Threading Building Blocks)

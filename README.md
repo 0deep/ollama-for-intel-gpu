@@ -4,13 +4,14 @@ Custom build of [Ollama](https://github.com/ollama/ollama) with optimized suppor
 
 ## Supported Models
 
-This build is fully compatible with **Ollama v0.17.7** and supports:
+This build is fully compatible with **Ollama v0.18.2** and supports:
 
 - **GPT-OSS 20B** - Open-source GPT model
 - **Qwen3 Series** - Supports the newest Qwen3.5 models
 - **Ministral-3** - Mistral AI's latest compact model
 - **LFM-2 Series** - Liquid AI's high-performance compact model
 - **And most models supported by Ollama** - All models compatible with standard Ollama will work with this Intel GPU-optimized build
+
 
 ## Integrations
 
@@ -19,7 +20,7 @@ This build is fully compatible with **Ollama v0.17.7** and supports:
 
 ## Version Information
 
-- **Ollama Base Version**: v0.17.7 (commit: `9b0c7cc7`)
+- **Ollama Base Version**: v0.18.2 (commit: `5759c2d2`)
 - **Supported Backends**: CPU (multi-variant), SYCL (Intel GPU)
 
 ## Features

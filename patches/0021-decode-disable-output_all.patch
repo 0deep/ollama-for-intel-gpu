@@ -1,28 +1,24 @@
-From f0fccdcb227df8a823d06daeb8d9a2df42364074 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: 0deep <kimexpon@gmail.com>
 Date: Sat, 7 Mar 2026 19:26:31 +0900
 Subject: [PATCH] fix(0021-0022): apply decode-disable-output_all and
  resetting-backend-devices with context fix
 
 ---
- ggml/include/ggml-backend.h          |  1 +
- ggml/src/ggml-backend-impl.h         |  4 ++++
- ggml/src/ggml-backend.cpp            |  8 ++++++++
- ggml/src/ggml-cuda/ggml-cuda.cu      | 16 +++++++++++++++-
- ggml/src/ggml-cuda/ggml-cuda.cu.rej  | 13 +++++++++++++
- ggml/src/ggml-cuda/vendors/hip.h     |  1 +
- ggml/src/ggml-cuda/vendors/hip.h.rej |  9 +++++++++
- src/llama-context.cpp                |  3 +--
- src/llama.cpp                        |  4 +++-
- 9 files changed, 55 insertions(+), 4 deletions(-)
- create mode 100644 ggml/src/ggml-cuda/ggml-cuda.cu.rej
- create mode 100644 ggml/src/ggml-cuda/vendors/hip.h.rej
+ ggml/include/ggml-backend.h      |  1 +
+ ggml/src/ggml-backend-impl.h     |  4 ++++
+ ggml/src/ggml-backend.cpp        |  8 ++++++++
+ ggml/src/ggml-cuda/ggml-cuda.cu  | 16 +++++++++++++++-
+ ggml/src/ggml-cuda/vendors/hip.h |  1 +
+ src/llama-context.cpp            |  3 +--
+ src/llama.cpp                    |  4 +++-
+ 7 files changed, 33 insertions(+), 4 deletions(-)
 
 diff --git a/ggml/include/ggml-backend.h b/ggml/include/ggml-backend.h
-index 0a7485ad3..2fc9dea9d 100644
+index 093d7f895..d3a40822c 100644
 --- a/ggml/include/ggml-backend.h
 +++ b/ggml/include/ggml-backend.h
-@@ -177,6 +177,7 @@ extern "C" {
+@@ -178,6 +178,7 @@ extern "C" {
      GGML_API void                          ggml_backend_dev_get_props(ggml_backend_dev_t device, struct ggml_backend_dev_props * props);
      GGML_API ggml_backend_reg_t            ggml_backend_dev_backend_reg(ggml_backend_dev_t device);
      GGML_API ggml_backend_t                ggml_backend_dev_init(ggml_backend_dev_t device, const char * params);
@@ -46,7 +42,7 @@ index 93eb8e511..c815c2eed 100644
  
      struct ggml_backend_device {
 diff --git a/ggml/src/ggml-backend.cpp b/ggml/src/ggml-backend.cpp
-index 54cc5ea45..270371da0 100644
+index f5e95889e..7a979e4c2 100644
 --- a/ggml/src/ggml-backend.cpp
 +++ b/ggml/src/ggml-backend.cpp
 @@ -535,6 +535,14 @@ ggml_backend_t ggml_backend_dev_init(ggml_backend_dev_t device, const char * par
@@ -65,7 +61,7 @@ index 54cc5ea45..270371da0 100644
      GGML_ASSERT(device);
      return device->iface.get_buffer_type(device);
 diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
-index 6c4f9a509..6a2606c59 100644
+index 3761218bc..f67e1d4ca 100644
 --- a/ggml/src/ggml-cuda/ggml-cuda.cu
 +++ b/ggml/src/ggml-cuda/ggml-cuda.cu
 @@ -117,6 +117,11 @@ int ggml_cuda_get_device() {
@@ -80,8 +76,8 @@ index 6c4f9a509..6a2606c59 100644
  static cudaError_t ggml_cuda_device_malloc(void ** ptr, size_t size, int device) {
      ggml_cuda_set_device(device);
      cudaError_t err;
-@@ -4762,7 +4767,10 @@ static void ggml_backend_cuda_device_get_props(ggml_backend_dev_t dev, ggml_back
-     props->description = ggml_backend_cuda_device_get_description(dev);
+@@ -4862,7 +4867,10 @@ static void ggml_backend_cuda_device_get_props(ggml_backend_dev_t dev, ggml_back
+     props->id          = ggml_backend_cuda_device_get_id(dev);
      props->type        = ggml_backend_cuda_device_get_type(dev);
      props->device_id   = ctx->pci_bus_id.empty() ? nullptr : ctx->pci_bus_id.c_str();
 -    ggml_backend_cuda_device_get_memory(dev, &props->memory_free, &props->memory_total);
@@ -92,7 +88,7 @@ index 6c4f9a509..6a2606c59 100644
  
      bool host_buffer = getenv("GGML_CUDA_NO_PINNED") == nullptr;
  #ifdef GGML_CUDA_NO_PEER_COPY
-@@ -5228,6 +5236,11 @@ static void ggml_backend_cuda_device_event_synchronize(ggml_backend_dev_t dev, g
+@@ -5334,6 +5342,11 @@ static void ggml_backend_cuda_device_event_synchronize(ggml_backend_dev_t dev, g
      CUDA_CHECK(cudaEventSynchronize((cudaEvent_t)event->context));
  }
  
@@ -104,7 +100,7 @@ index 6c4f9a509..6a2606c59 100644
  static const ggml_backend_device_i ggml_backend_cuda_device_interface = {
      /* .get_name                = */ ggml_backend_cuda_device_get_name,
      /* .get_description         = */ ggml_backend_cuda_device_get_description,
-@@ -5244,6 +5257,7 @@ static const ggml_backend_device_i ggml_backend_cuda_device_interface = {
+@@ -5350,6 +5363,7 @@ static const ggml_backend_device_i ggml_backend_cuda_device_interface = {
      /* .event_new               = */ ggml_backend_cuda_device_event_new,
      /* .event_free              = */ ggml_backend_cuda_device_event_free,
      /* .event_synchronize       = */ ggml_backend_cuda_device_event_synchronize,
@@ -112,27 +108,8 @@ index 6c4f9a509..6a2606c59 100644
  };
  
  // backend reg
-diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu.rej b/ggml/src/ggml-cuda/ggml-cuda.cu.rej
-new file mode 100644
-index 000000000..25c57238a
---- /dev/null
-+++ b/ggml/src/ggml-cuda/ggml-cuda.cu.rej
-@@ -0,0 +1,13 @@
-+diff a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu	(rejected hunks)
-+@@ -4448,7 +4453,10 @@ static void ggml_backend_cuda_device_get_props(ggml_backend_dev_t dev, ggml_back
-+     props->id          = ggml_backend_cuda_device_get_id(dev);
-+     props->type        = ggml_backend_cuda_device_get_type(dev);
-+     props->device_id   = ctx->pci_bus_id.empty() ? nullptr : ctx->pci_bus_id.c_str();
-+-    ggml_backend_cuda_device_get_memory(dev, &props->memory_free, &props->memory_total);
-++
-++    // Memory reporting is disabled to avoid allocation of a CUDA primary context (~300 MB per device).
-++    // If you need the memory data, call ggml_backend_dev_memory() explicitly.
-++    props->memory_total = props->memory_free = 0;
-+ 
-+     bool host_buffer = getenv("GGML_CUDA_NO_PINNED") == nullptr;
-+ #ifdef GGML_CUDA_NO_PEER_COPY
 diff --git a/ggml/src/ggml-cuda/vendors/hip.h b/ggml/src/ggml-cuda/vendors/hip.h
-index 5cc1b5431..5c172bf5d 100644
+index 35d1e1a06..10f56df7f 100644
 --- a/ggml/src/ggml-cuda/vendors/hip.h
 +++ b/ggml/src/ggml-cuda/vendors/hip.h
 @@ -51,6 +51,7 @@
@@ -143,26 +120,11 @@ index 5cc1b5431..5c172bf5d 100644
  #define cudaDeviceSynchronize hipDeviceSynchronize
  #define cudaError_t hipError_t
  #define cudaErrorPeerAccessAlreadyEnabled hipErrorPeerAccessAlreadyEnabled
-diff --git a/ggml/src/ggml-cuda/vendors/hip.h.rej b/ggml/src/ggml-cuda/vendors/hip.h.rej
-new file mode 100644
-index 000000000..489186e94
---- /dev/null
-+++ b/ggml/src/ggml-cuda/vendors/hip.h.rej
-@@ -0,0 +1,9 @@
-+diff a/ggml/src/ggml-cuda/vendors/hip.h b/ggml/src/ggml-cuda/vendors/hip.h	(rejected hunks)
-+@@ -49,6 +49,7 @@
-+ #define cudaDeviceDisablePeerAccess hipDeviceDisablePeerAccess
-+ #define cudaDeviceEnablePeerAccess hipDeviceEnablePeerAccess
-+ #define cudaDeviceProp hipDeviceProp_t
-++#define cudaDeviceReset hipDeviceReset
-+ #define cudaDeviceSynchronize hipDeviceSynchronize
-+ #define cudaError_t hipError_t
-+ #define cudaErrorPeerAccessAlreadyEnabled hipErrorPeerAccessAlreadyEnabled
 diff --git a/src/llama-context.cpp b/src/llama-context.cpp
-index abaa5c0f8..dbf806fd8 100644
+index 8f25d4778..c41a5a586 100644
 --- a/src/llama-context.cpp
 +++ b/src/llama-context.cpp
-@@ -1481,8 +1481,7 @@ int llama_context::decode(const llama_batch & batch_inp) {
+@@ -1543,8 +1543,7 @@ int llama_context::decode(const llama_batch & batch_inp) {
      const int64_t n_vocab = vocab.n_tokens();
      const int64_t n_embd  = hparams.n_embd_inp();
  
@@ -173,10 +135,10 @@ index abaa5c0f8..dbf806fd8 100644
  
      const uint32_t n_seq_max = cparams.kv_unified ? LLAMA_MAX_SEQ : cparams.n_seq_max;
 diff --git a/src/llama.cpp b/src/llama.cpp
-index 6da90d6f1..c5aec0816 100644
+index 872e659ed..2419093aa 100644
 --- a/src/llama.cpp
 +++ b/src/llama.cpp
-@@ -997,10 +997,12 @@ static struct llama_model * llama_model_load_from_file_impl(
+@@ -1005,10 +1005,12 @@ static struct llama_model * llama_model_load_from_file_impl(
      for (auto * dev : model->devices) {
          ggml_backend_dev_props props;
          ggml_backend_dev_get_props(dev, &props);
@@ -189,7 +151,4 @@ index 6da90d6f1..c5aec0816 100644
 +                memory_free/1024/1024);
      }
  
-     const int status = llama_model_load(path_model, splits, *model, params);
--- 
-2.43.0
-
+     const int status = llama_model_load(metadata, set_tensor_data, set_tensor_data_ud, path_model, splits, *model, params);

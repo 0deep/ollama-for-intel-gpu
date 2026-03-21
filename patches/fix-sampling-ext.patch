@@ -1,0 +1,22 @@
+diff --git a/llama/sampling_ext.cpp b/llama/sampling_ext.cpp
+index 8ad39474..6e6daeb0 100644
+--- a/llama/sampling_ext.cpp
++++ b/llama/sampling_ext.cpp
+@@ -21,7 +21,7 @@ struct common_sampler *common_sampler_cinit(const struct llama_model *model, str
+         sparams.penalty_freq = params->penalty_freq;
+         sparams.penalty_present = params->penalty_present;
+         sparams.seed = params->seed;
+-        sparams.grammar = params->grammar;
++        sparams.grammar = { params->grammar && params->grammar[0] ? COMMON_GRAMMAR_TYPE_USER : COMMON_GRAMMAR_TYPE_NONE, params->grammar ? params->grammar : "" };
+         sparams.xtc_probability = 0.0;
+         sparams.xtc_threshold = 0.5;
+         return common_sampler_init(model, sparams);
+@@ -72,7 +72,7 @@ struct llama_vocab * llama_load_vocab_from_file(const char * fname) {
+     try {
+         const auto kv = LLM_KV(LLM_ARCH_UNKNOWN);
+         std::vector<std::string> splits = {};
+-        llama_model_loader ml(std::string(fname), splits, false, false, false, false, nullptr, nullptr);
++        llama_model_loader ml(nullptr, nullptr, nullptr, std::string(fname), splits, false, false, false, false, nullptr, nullptr);
+         vocab->load(ml, kv);
+     } catch (const std::exception & err) {
+         LLAMA_LOG_ERROR("%s: error loading model: %s\n", __func__, err.what());

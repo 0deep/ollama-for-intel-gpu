@@ -16,11 +16,16 @@ cd $(dirname $0)/..
 
 mkdir -p dist
 
+# SYCL optimization flags and include paths
+CGO_CFLAGS="-DGGML_SYCL -I./llama/llama.cpp/src -I./llama/llama.cpp/common"
+CGO_CXXFLAGS="-DGGML_SYCL -I./llama/llama.cpp/src -I./llama/llama.cpp/common"
 
 docker buildx build \
     --output type=local,dest=./dist/ \
     --platform=linux/amd64 \
     ${OLLAMA_COMMON_BUILD_ARGS} \
+    --build-arg="CGO_CFLAGS=${CGO_CFLAGS}" \
+    --build-arg="CGO_CXXFLAGS=${CGO_CXXFLAGS}" \
     --target archive \
     -f Dockerfile \
     .
