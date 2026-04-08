@@ -37,10 +37,10 @@ index a65cf0090..04038ece3 100644
      SetErrorMode(old_mode);
  
 diff --git a/ggml/src/ggml-backend-reg.cpp b/ggml/src/ggml-backend-reg.cpp
-index 311fa5fe3..53f6d7a48 100644
+index 058710921..25c7b9bfb 100644
 --- a/ggml/src/ggml-backend-reg.cpp
 +++ b/ggml/src/ggml-backend-reg.cpp
-@@ -99,6 +99,7 @@ static std::string path_str(const fs::path & path) {
+@@ -103,6 +103,7 @@ static std::string path_str(const fs::path & path) {
      }
  }
  

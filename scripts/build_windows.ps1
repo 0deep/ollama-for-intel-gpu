@@ -21,7 +21,7 @@ function checkEnv {
     $env:CGO_ENABLED="1"
     Write-Output "Checking version"
     if (!$env:VERSION) {
-        $data=(git describe --tags --first-parent --abbrev=7 --long --dirty --always)
+        $data=(git -C ollama describe --tags --first-parent --abbrev=7 --long --dirty --always)
         $pattern="v(.+)"
         if ($data -match $pattern) {
             $script:VERSION=$matches[1]
@@ -48,9 +48,11 @@ function sycl {
 function ollama {
     mkdir -Force -path "${script:DIST_DIR}\" | Out-Null
     write-host "Building ollama CLI"
+    set-location ollama
     & go build -trimpath -ldflags "-s -w -X=github.com/ollama/ollama/version.Version=$script:VERSION -X=github.com/ollama/ollama/server.mode=release" .
     if ($LASTEXITCODE -ne 0) { exit($LASTEXITCODE)}
     cp .\ollama.exe "${script:DIST_DIR}\"
+    set-location $script:SRC_DIR
 }
 
 function clean {

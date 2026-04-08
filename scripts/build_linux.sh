@@ -12,6 +12,7 @@ set -eu
 
 
 cd $(dirname $0)/..
+export VERSION=${VERSION:-$(git -C ollama describe --tags --first-parent --abbrev=7 --long --dirty --always | sed -e "s/^v//g")}
 . ollama/scripts/env.sh
 
 mkdir -p dist

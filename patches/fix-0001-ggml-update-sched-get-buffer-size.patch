@@ -1,3 +1,4 @@
+
 diff --git a/llama/llama.cpp/.rsync-filter b/llama/llama.cpp/.rsync-filter
 index 7987be1c..0c87d929 100644
 --- a/llama/llama.cpp/.rsync-filter
@@ -10,6 +11,7 @@ index 7987be1c..0c87d929 100644
  include /common/sampling.*
  include /include/
  include /include/llama.*
+
 diff --git a/llama/llama.cpp/common/common.go b/llama/llama.cpp/common/common.go
 index e11bb167..7a2f1082 100644
 --- a/llama/llama.cpp/common/common.go
@@ -22,6 +24,7 @@ index e11bb167..7a2f1082 100644
 +// #cgo CPPFLAGS: -I${SRCDIR}/../include -I${SRCDIR}/../vendor -I${SRCDIR}/../src
  // #cgo CPPFLAGS: -I${SRCDIR}/../../../ml/backend/ggml/ggml/include
  import "C"
+
 diff --git a/llama/llama.cpp/src/models/models.go b/llama/llama.cpp/src/models/models.go
 index c6c42b6f..675a1815 100644
 --- a/llama/llama.cpp/src/models/models.go
@@ -34,6 +37,7 @@ index c6c42b6f..675a1815 100644
 +// #cgo CPPFLAGS: -I${SRCDIR}/../../include -I${SRCDIR}/../../vendor -I${SRCDIR}/..
  // #cgo CPPFLAGS: -I${SRCDIR}/../../../../ml/backend/ggml/ggml/include
  import "C"
+
 diff --git a/llama/llama.go b/llama/llama.go
 index 87844f2a..39d09590 100644
 --- a/llama/llama.go
@@ -56,19 +60,7 @@ index 87844f2a..39d09590 100644
  	}
  	if err != 0 {
  		return errors.New("error applying lora from file")
-diff --git a/llama/sampling_ext.cpp b/llama/sampling_ext.cpp
-index 9ae5fd57..8ad39474 100644
---- a/llama/sampling_ext.cpp
-+++ b/llama/sampling_ext.cpp
-@@ -72,7 +72,7 @@ struct llama_vocab * llama_load_vocab_from_file(const char * fname) {
-     try {
-         const auto kv = LLM_KV(LLM_ARCH_UNKNOWN);
-         std::vector<std::string> splits = {};
--        llama_model_loader ml(std::string(fname), splits, false, false, false, nullptr, nullptr);
-+        llama_model_loader ml(std::string(fname), splits, false, false, false, false, nullptr, nullptr);
-         vocab->load(ml, kv);
-     } catch (const std::exception & err) {
-         LLAMA_LOG_ERROR("%s: error loading model: %s\n", __func__, err.what());
+
 diff --git a/ml/backend/ggml/ggml.go b/ml/backend/ggml/ggml.go
 index c2ce30dd..f0c3dfcf 100644
 --- a/ml/backend/ggml/ggml.go

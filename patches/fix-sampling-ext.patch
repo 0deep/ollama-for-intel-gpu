@@ -1,5 +1,5 @@
 diff --git a/llama/sampling_ext.cpp b/llama/sampling_ext.cpp
-index 8ad39474..6e6daeb0 100644
+index 9ae5fd57..e18cb74a 100644
 --- a/llama/sampling_ext.cpp
 +++ b/llama/sampling_ext.cpp
 @@ -21,7 +21,7 @@ struct common_sampler *common_sampler_cinit(const struct llama_model *model, str
@@ -15,8 +15,8 @@ index 8ad39474..6e6daeb0 100644
      try {
          const auto kv = LLM_KV(LLM_ARCH_UNKNOWN);
          std::vector<std::string> splits = {};
--        llama_model_loader ml(std::string(fname), splits, false, false, false, false, nullptr, nullptr);
-+        llama_model_loader ml(nullptr, nullptr, nullptr, std::string(fname), splits, false, false, false, false, nullptr, nullptr);
+-        llama_model_loader ml(std::string(fname), splits, false, false, false, nullptr, nullptr);
++        llama_model_loader ml(nullptr, nullptr, nullptr, std::string(fname), splits, nullptr, false, false, false, false, nullptr, nullptr);
          vocab->load(ml, kv);
      } catch (const std::exception & err) {
          LLAMA_LOG_ERROR("%s: error loading model: %s\n", __func__, err.what());

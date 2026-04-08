@@ -8,10 +8,10 @@ Subject: [PATCH] add batch size hint for sycl
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/ggml/src/ggml-sycl/ggml-sycl.cpp b/ggml/src/ggml-sycl/ggml-sycl.cpp
-index 0614d7e8f..a0fe5ffa6 100644
+index e80ead9ae..5a2ef8395 100644
 --- a/ggml/src/ggml-sycl/ggml-sycl.cpp
 +++ b/ggml/src/ggml-sycl/ggml-sycl.cpp
-@@ -4371,7 +4371,7 @@ static bool check_graph_compatibility(ggml_cgraph * cgraph) {
+@@ -4458,7 +4458,7 @@ static bool check_graph_compatibility(ggml_cgraph * cgraph) {
  }
  #endif
  
@@ -20,7 +20,7 @@ index 0614d7e8f..a0fe5ffa6 100644
      auto * sycl_ctx = static_cast<ggml_backend_sycl_context *>(backend->context);
  
  #ifdef GGML_SYCL_GRAPH
-@@ -4414,6 +4414,8 @@ static ggml_status ggml_backend_sycl_graph_compute(ggml_backend_t backend, ggml_
+@@ -4501,6 +4501,8 @@ static ggml_status ggml_backend_sycl_graph_compute(ggml_backend_t backend, ggml_
      {
          ggml_backend_sycl_graph_compute_impl(sycl_ctx, cgraph);
      }
@@ -29,6 +29,3 @@ index 0614d7e8f..a0fe5ffa6 100644
      return GGML_STATUS_SUCCESS;
  }
  
--- 
-2.43.0
-
