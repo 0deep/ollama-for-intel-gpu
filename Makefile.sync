@@ -12,7 +12,7 @@ help:
 	@echo "    clean                Clean local repository"
 	@echo
 	@echo "Example:"
-	@echo "    make -f $(lastword $(MAKEFILE_LIST)) clean apply-patches sync"
+	@echo "    make -f $(lastword $(MAKEFILE_LIST)) clean checkout apply-patches sync"
 
 .PHONY: sync
 sync: ollama/llama/build-info.cpp ollama/ml/backend/ggml/ggml/src/ggml-metal/ggml-metal-embed.metal
@@ -30,6 +30,18 @@ ollama/llama/llama.cpp: ollama/llama/vendor
 .PHONY: ollama/ml/backend/ggml/ggml
 ollama/ml/backend/ggml/ggml: ollama/llama/vendor
 	rsync -arvzc --delete -f "include LICENSE" -f "merge $@/.rsync-filter" $(addprefix $<,/LICENSE /ggml/) $@
+
+.PHONY: checkout
+checkout:
+	@mkdir -p $(dir $(WORKDIR))
+	@if [ ! -d $(WORKDIR)/.git ]; then \
+		echo ">>> Cloning $(UPSTREAM) into $(WORKDIR)..."; \
+		rm -rf $(WORKDIR); \
+		git clone $(UPSTREAM) $(WORKDIR); \
+	fi
+	@echo ">>> Fetching and checking out $(FETCH_HEAD)..."
+	@git -C $(WORKDIR) fetch origin $(FETCH_HEAD)
+	@git -C $(WORKDIR) checkout $(FETCH_HEAD)
 
 OLLAMA_PATCH_DIR=ollama/llama/patches
 LOCAL_PATCH_DIR=patches
@@ -59,64 +71,51 @@ PATCHED=$(addsuffix .patched,$(PATCHES))
 
 .PHONY: apply-patches
 .NOTPARALLEL:
-apply-patches: $(PATCHED)
+apply-patches: checkout $(PATCHED)
 
 $(LOCAL_PATCH_DIR)/fix-%.patch.patched: $(LOCAL_PATCH_DIR)/fix-%.patch
-	@if git -C $(OLLAMA_SUBREPO) apply --3way $(realpath $<); then \
-		touch $@;                                            \
-	else                                                     \
+	@if git -C $(OLLAMA_SUBREPO) apply --3way $(realpath $<) 2>/dev/null || git -C $(OLLAMA_SUBREPO) apply $(realpath $<); then \
+		touch $@; \
+	else \
 		echo "Ollama patch failed: $<. Resolve any conflicts then continue."; \
-		exit 1;                                              \
+		exit 1; \
 	fi
 
-$(OLLAMA_PATCH_DIR)/%.patch.patched: $(OLLAMA_PATCH_DIR)/%.patch
+$(OLLAMA_PATCH_DIR)/%.patch.patched: $(OLLAMA_PATCH_DIR)/%.patch checkout
 	@if git -C $(WORKDIR) am -3 $(realpath $<); then \
-		touch $@;                                            \
-	else                                                     \
-		echo "Patch failed: $<. Resolve any conflicts then continue.";                        \
-		echo "1. Run 'git -C $(WORKDIR) am --continue'";                                    \
-		echo "2. Run 'make -f $(lastword $(MAKEFILE_LIST)) format-patches'";                \
-		echo "3. Run 'make -f $(lastword $(MAKEFILE_LIST)) clean apply-patches'";           \
-		exit 1;                                              \
+		touch $@; \
+	else \
+		echo "Patch failed: $<. Resolve any conflicts then continue."; \
+		echo "1. Run 'git -C $(WORKDIR) am --continue'"; \
+		echo "2. Run 'make -f $(lastword $(MAKEFILE_LIST)) format-patches'"; \
+		echo "3. Run 'make -f $(lastword $(MAKEFILE_LIST)) clean checkout apply-patches'"; \
+		exit 1; \
 	fi
 
-$(LOCAL_PATCH_DIR)/%.patch.patched: $(LOCAL_PATCH_DIR)/%.patch
+$(LOCAL_PATCH_DIR)/%.patch.patched: $(LOCAL_PATCH_DIR)/%.patch checkout
 	@if git -C $(WORKDIR) am -3 $(realpath $<); then \
-		touch $@;                                            \
-	else                                                     \
-		echo "Patch failed: $<. Resolve any conflicts then continue.";                        \
-		echo "1. Run 'git -C $(WORKDIR) am --continue'";                                    \
-		echo "2. Run 'make -f $(lastword $(MAKEFILE_LIST)) format-patches'";                \
-		echo "3. Run 'make -f $(lastword $(MAKEFILE_LIST)) clean apply-patches'";           \
-		exit 1;                                              \
+		touch $@; \
+	else \
+		echo "Patch failed: $<. Resolve any conflicts then continue."; \
+		echo "1. Run 'git -C $(WORKDIR) am --continue'"; \
+		echo "2. Run 'make -f $(lastword $(MAKEFILE_LIST)) format-patches'"; \
+		echo "3. Run 'make -f $(lastword $(MAKEFILE_LIST)) clean checkout apply-patches'"; \
+		exit 1; \
 	fi
-
-.PHONY: checkout
-checkout: $(WORKDIR)
-	git -C $(WORKDIR) fetch
-	git -C $(WORKDIR) checkout -f $(FETCH_HEAD)
-
-$(WORKDIR):
-	git clone $(UPSTREAM) $(WORKDIR)
 
 .PHONY: format-patches
-format-patches: $(LOCAL_PATCH_DIR)
-	git -C $(WORKDIR) format-patch \
-		--no-signature \
-		--no-numbered \
-		--zero-commit \
-		-o $(realpath $(LOCAL_PATCH_DIR)) \
-		$(FETCH_HEAD)
+format-patches:
+	@git -C $(WORKDIR) format-patch -N -o $(realpath $(OLLAMA_PATCH_DIR)) $(FETCH_HEAD)
 
 .PHONY: clean
-clean: checkout
-	@git -C $(WORKDIR) am --abort || true
-	@git -C $(OLLAMA_SUBREPO) am --abort || true
-	git submodule update --init --recursive --force $(OLLAMA_SUBREPO)
-	git -C $(OLLAMA_SUBREPO) checkout -f $$(git rev-parse :$(OLLAMA_SUBREPO))
-	git -C $(OLLAMA_SUBREPO) clean -fd || true
-	$(RM) $(OLLAMA_PATCH_DIR)/*.patch.patched $(LOCAL_PATCH_DIR)/*.patch.patched
-
-.PHONY: print-base
-print-base:
-	@echo $(FETCH_HEAD)
+clean:
+	@if [ -d "$(WORKDIR)" ]; then \
+		git -C $(WORKDIR) am --abort || true; \
+		git -C $(WORKDIR) reset --hard $(FETCH_HEAD) || true; \
+		git -C $(WORKDIR) clean -fd; \
+	fi
+	@if [ -d "$(OLLAMA_SUBREPO)" ]; then \
+		git -C $(OLLAMA_SUBREPO) reset --hard HEAD; \
+		git -C $(OLLAMA_SUBREPO) clean -fd; \
+	fi
+	@rm -f $(PATCHED)

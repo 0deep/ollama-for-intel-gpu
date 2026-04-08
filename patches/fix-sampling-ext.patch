@@ -2,16 +2,20 @@ diff --git a/llama/sampling_ext.cpp b/llama/sampling_ext.cpp
 index 9ae5fd57..e18cb74a 100644
 --- a/llama/sampling_ext.cpp
 +++ b/llama/sampling_ext.cpp
-@@ -21,7 +21,7 @@ struct common_sampler *common_sampler_cinit(const struct llama_model *model, str
+@@ -21,7 +21,11 @@ struct common_sampler *common_sampler_cinit(const struct llama_model *model, str
          sparams.penalty_freq = params->penalty_freq;
          sparams.penalty_present = params->penalty_present;
          sparams.seed = params->seed;
 -        sparams.grammar = params->grammar;
-+        sparams.grammar = { params->grammar && params->grammar[0] ? COMMON_GRAMMAR_TYPE_USER : COMMON_GRAMMAR_TYPE_NONE, params->grammar ? params->grammar : "" };
++        if (params->grammar && params->grammar[0]) {
++            sparams.grammar = { COMMON_GRAMMAR_TYPE_USER, params->grammar };
++        } else {
++            sparams.grammar = common_grammar();
++        }
          sparams.xtc_probability = 0.0;
          sparams.xtc_threshold = 0.5;
          return common_sampler_init(model, sparams);
-@@ -72,7 +72,7 @@ struct llama_vocab * llama_load_vocab_from_file(const char * fname) {
+@@ -73,7 +77,7 @@ struct llama_vocab * llama_load_vocab_from_file(const char * fname) {
      try {
          const auto kv = LLM_KV(LLM_ARCH_UNKNOWN);
          std::vector<std::string> splits = {};

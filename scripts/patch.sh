@@ -14,7 +14,7 @@ docker build -t patcher -f Dockerfile.patcher .
 echo ">>> Applying patches and syncing sources..."
 
 # Default targets if none provided
-TARGETS=${*:-"clean apply-patches sync"}
+TARGETS=${*:-"clean checkout apply-patches sync"}
 
 docker run --rm \
     -v "$(pwd):/workspace" \
