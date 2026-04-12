@@ -4,7 +4,7 @@ Custom build of [Ollama](https://github.com/ollama/ollama) with optimized suppor
 
 ## Supported Models
 
-This build is fully compatible with **Ollama v0.18.2** and supports:
+This build is fully compatible with **Ollama v0.20.5** and supports:
 
 - **GPT-OSS 20B** - Open-source GPT model
 - **Qwen3 Series** - Supports the newest Qwen3.5 models
@@ -21,7 +21,7 @@ This build is fully compatible with **Ollama v0.18.2** and supports:
 
 ## Version Information
 
-- **Ollama Base Version**: v0.18.2 (commit: `5759c2d2`)
+- **Ollama Base Version**: v0.20.5 (commit: `80d3744c`)
 - **Supported Backends**: CPU (multi-variant), SYCL (Intel GPU)
 
 ## Features
@@ -29,6 +29,7 @@ This build is fully compatible with **Ollama v0.18.2** and supports:
 - ✅ **Intel GPU Support**: Full SYCL backend integration for Intel Arc, Iris Xe, and integrated GPUs
 - ✅ **Intel oneAPI Integration**: Leverages Intel oneDNN, MKL, and TBB for optimized performance
 - ✅ **F16 & DNN Acceleration**: Enabled SYCL F16 and DNN optimizations for faster inference
+- ✅ **Batch Size Hinting**: Enhanced batch size hinting for SYCL meta backend
 - ✅ **Multi-Architecture CPU Support**: Includes optimized variants (x64, SSE4.2, AVX, AVX2, AVX512, AVX-VNNI)
 - ✅ **Docker Build**: Containerized build process for reproducible builds
 
@@ -171,19 +172,19 @@ Configuration:
 
 ## Updating GGML SYCL Backend
 
-To update the GGML SYCL backend to the latest version from [llama.cpp](https://github.com/ggml-org/llama.cpp):
+To update the GGML SYCL backend to a specific version or the latest from [llama.cpp](https://github.com/ggml-org/llama.cpp):
 
-```bash
-# Run the update script
-python3 scripts/update_ggml_sycl.py
-```
+1.  Update the `FETCH_HEAD` commit hash in `Makefile.sync` to the desired upstream commit.
+2.  Run the patch and sync script:
+    ```bash
+    ./scripts/patch.sh
+    ```
 
 This script will:
-- Fetch the latest SYCL backend code from llama.cpp master branch
-- Compare SHA hashes to detect changes
-- Backup existing files before updating
-- Download and install updated files
-- Provide a detailed report of changes
+- Build the patcher environment
+- Fetch the specified `FETCH_HEAD` from llama.cpp
+- Apply local and Ollama patches
+- Sync the updated backend files to the `ollama/` submodule directory
 
 **Note**: After updating, rebuild the project to incorporate the changes:
 ```bash

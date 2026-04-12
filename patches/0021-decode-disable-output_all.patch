@@ -1,4 +1,4 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From b41b78c7d62caca6cb431aae537da11502b8b629 Mon Sep 17 00:00:00 2001
 From: 0deep <kimexpon@gmail.com>
 Date: Sat, 7 Mar 2026 19:26:31 +0900
 Subject: [PATCH] fix(0021-0022): apply decode-disable-output_all and
@@ -15,10 +15,10 @@ Subject: [PATCH] fix(0021-0022): apply decode-disable-output_all and
  7 files changed, 33 insertions(+), 4 deletions(-)
 
 diff --git a/ggml/include/ggml-backend.h b/ggml/include/ggml-backend.h
-index 093d7f895..d3a40822c 100644
+index 5525832d9..278e28ee3 100644
 --- a/ggml/include/ggml-backend.h
 +++ b/ggml/include/ggml-backend.h
-@@ -178,6 +178,7 @@ extern "C" {
+@@ -184,6 +184,7 @@ extern "C" {
      GGML_API void                          ggml_backend_dev_get_props(ggml_backend_dev_t device, struct ggml_backend_dev_props * props);
      GGML_API ggml_backend_reg_t            ggml_backend_dev_backend_reg(ggml_backend_dev_t device);
      GGML_API ggml_backend_t                ggml_backend_dev_init(ggml_backend_dev_t device, const char * params);
@@ -27,10 +27,10 @@ index 093d7f895..d3a40822c 100644
      GGML_API ggml_backend_buffer_type_t    ggml_backend_dev_host_buffer_type(ggml_backend_dev_t device);
      GGML_API ggml_backend_buffer_t         ggml_backend_dev_buffer_from_host_ptr(ggml_backend_dev_t device, void * ptr, size_t size, size_t max_tensor_size);
 diff --git a/ggml/src/ggml-backend-impl.h b/ggml/src/ggml-backend-impl.h
-index 93eb8e511..c815c2eed 100644
+index d2ebbda4e..81ff81d3a 100644
 --- a/ggml/src/ggml-backend-impl.h
 +++ b/ggml/src/ggml-backend-impl.h
-@@ -195,6 +195,10 @@ extern "C" {
+@@ -215,6 +215,10 @@ extern "C" {
          ggml_backend_event_t (*event_new)         (ggml_backend_dev_t dev);
          void                 (*event_free)        (ggml_backend_dev_t dev, ggml_backend_event_t event);
          void                 (*event_synchronize) (ggml_backend_dev_t dev, ggml_backend_event_t event);
@@ -42,10 +42,10 @@ index 93eb8e511..c815c2eed 100644
  
      struct ggml_backend_device {
 diff --git a/ggml/src/ggml-backend.cpp b/ggml/src/ggml-backend.cpp
-index f5e95889e..7a979e4c2 100644
+index 401d10c9d..bd7a7e4ef 100644
 --- a/ggml/src/ggml-backend.cpp
 +++ b/ggml/src/ggml-backend.cpp
-@@ -535,6 +535,14 @@ ggml_backend_t ggml_backend_dev_init(ggml_backend_dev_t device, const char * par
+@@ -622,6 +622,14 @@ ggml_backend_t ggml_backend_dev_init(ggml_backend_dev_t device, const char * par
      return device->iface.init_backend(device, params);
  }
  
@@ -61,10 +61,10 @@ index f5e95889e..7a979e4c2 100644
      GGML_ASSERT(device);
      return device->iface.get_buffer_type(device);
 diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
-index d4a99db35..bbda9e807 100644
+index 8a668542c..5419b6ae3 100644
 --- a/ggml/src/ggml-cuda/ggml-cuda.cu
 +++ b/ggml/src/ggml-cuda/ggml-cuda.cu
-@@ -117,6 +117,11 @@ int ggml_cuda_get_device() {
+@@ -116,6 +116,11 @@ int ggml_cuda_get_device() {
      return id;
  }
  
@@ -76,7 +76,7 @@ index d4a99db35..bbda9e807 100644
  static cudaError_t ggml_cuda_device_malloc(void ** ptr, size_t size, int device) {
      ggml_cuda_set_device(device);
      cudaError_t err;
-@@ -4885,7 +4890,10 @@ static void ggml_backend_cuda_device_get_props(ggml_backend_dev_t dev, ggml_back
+@@ -4879,7 +4884,10 @@ static void ggml_backend_cuda_device_get_props(ggml_backend_dev_t dev, ggml_back
      props->id          = ggml_backend_cuda_device_get_id(dev);
      props->type        = ggml_backend_cuda_device_get_type(dev);
      props->device_id   = ctx->pci_bus_id.empty() ? nullptr : ctx->pci_bus_id.c_str();
@@ -88,7 +88,7 @@ index d4a99db35..bbda9e807 100644
  
      bool host_buffer = getenv("GGML_CUDA_NO_PINNED") == nullptr;
  #ifdef GGML_CUDA_NO_PEER_COPY
-@@ -5358,6 +5366,11 @@ static void ggml_backend_cuda_device_event_synchronize(ggml_backend_dev_t dev, g
+@@ -5352,6 +5360,11 @@ static void ggml_backend_cuda_device_event_synchronize(ggml_backend_dev_t dev, g
      CUDA_CHECK(cudaEventSynchronize((cudaEvent_t)event->context));
  }
  
@@ -100,7 +100,7 @@ index d4a99db35..bbda9e807 100644
  static const ggml_backend_device_i ggml_backend_cuda_device_interface = {
      /* .get_name                = */ ggml_backend_cuda_device_get_name,
      /* .get_description         = */ ggml_backend_cuda_device_get_description,
-@@ -5374,6 +5387,7 @@ static const ggml_backend_device_i ggml_backend_cuda_device_interface = {
+@@ -5368,6 +5381,7 @@ static const ggml_backend_device_i ggml_backend_cuda_device_interface = {
      /* .event_new               = */ ggml_backend_cuda_device_event_new,
      /* .event_free              = */ ggml_backend_cuda_device_event_free,
      /* .event_synchronize       = */ ggml_backend_cuda_device_event_synchronize,
@@ -109,10 +109,10 @@ index d4a99db35..bbda9e807 100644
  
  // backend reg
 diff --git a/ggml/src/ggml-cuda/vendors/hip.h b/ggml/src/ggml-cuda/vendors/hip.h
-index 9d9ba1ee2..f236a0f12 100644
+index 898fec31e..6009a7fe7 100644
 --- a/ggml/src/ggml-cuda/vendors/hip.h
 +++ b/ggml/src/ggml-cuda/vendors/hip.h
-@@ -51,6 +51,7 @@
+@@ -57,6 +57,7 @@
  #define cudaDeviceEnablePeerAccess hipDeviceEnablePeerAccess
  #define cudaDeviceGetAttribute hipDeviceGetAttribute
  #define cudaDeviceProp hipDeviceProp_t
@@ -121,10 +121,10 @@ index 9d9ba1ee2..f236a0f12 100644
  #define cudaError_t hipError_t
  #define cudaErrorPeerAccessAlreadyEnabled hipErrorPeerAccessAlreadyEnabled
 diff --git a/src/llama-context.cpp b/src/llama-context.cpp
-index a808e3e45..78b4cc96d 100644
+index ee0c29235..17a8976f1 100644
 --- a/src/llama-context.cpp
 +++ b/src/llama-context.cpp
-@@ -1545,8 +1545,7 @@ int llama_context::decode(const llama_batch & batch_inp) {
+@@ -1549,8 +1549,7 @@ int llama_context::decode(const llama_batch & batch_inp) {
      const int64_t n_vocab = vocab.n_tokens();
      const int64_t n_embd  = hparams.n_embd_inp();
  
@@ -135,20 +135,23 @@ index a808e3e45..78b4cc96d 100644
  
      const uint32_t n_seq_max = cparams.kv_unified ? LLAMA_MAX_SEQ : cparams.n_seq_max;
 diff --git a/src/llama.cpp b/src/llama.cpp
-index a345ea667..413b47967 100644
+index ce5752467..b7907755b 100644
 --- a/src/llama.cpp
 +++ b/src/llama.cpp
-@@ -1021,10 +1021,12 @@ static struct llama_model * llama_model_load_from_file_impl(
-     for (auto * dev : model->devices) {
+@@ -1081,10 +1081,12 @@ static struct llama_model * llama_model_load_from_file_impl(
+     for (const auto & dev : model->devices) {
          ggml_backend_dev_props props;
-         ggml_backend_dev_get_props(dev, &props);
+         ggml_backend_dev_get_props(dev.dev, &props);
 +        size_t memory_free, memory_total;
-+        ggml_backend_dev_memory(dev, &memory_free, &memory_total);
++        ggml_backend_dev_memory(dev.dev, &memory_free, &memory_total);
          LLAMA_LOG_INFO("%s: using device %s (%s) (%s) - %zu MiB free\n", __func__,
-                 ggml_backend_dev_name(dev), ggml_backend_dev_description(dev),
+                 ggml_backend_dev_name(dev.dev), ggml_backend_dev_description(dev.dev),
                  props.device_id ? props.device_id : "unknown id",
 -                props.memory_free/1024/1024);
 +                memory_free/1024/1024);
      }
  
      const int status = llama_model_load(metadata, set_tensor_data, set_tensor_data_ud, path_model, splits, file, *model, params);
+-- 
+2.43.0
+
